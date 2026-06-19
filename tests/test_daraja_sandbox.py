@@ -7,7 +7,7 @@ Products tested:
   ✅ B2C (Business to Customer)     — payout API for routing engine
   ✅ C2B (Customer to Business)      — inbound collection
   ✅ B2B Express (Push2Till)         — layering between accounts
-  ❌ M-Pesa Express (STK Push)       — add 'M-Pesa Express' product
+  ✅ M-Pesa Express (STK Push)       — customer-initiated payments
 
 Setup:
   1. Register at https://developer.safaricom.co.ke/
@@ -15,7 +15,7 @@ Setup:
      - B2C
      - C2B
      - B2B Express (also called B2B-UUSDPush2Till-Product)
-     - M-Pesa Express (for STK Push)
+     - M-Pesa Express (for STK Push — may need sandbox provisioning)
   3. Save CONSUMER_KEY and CONSUMER_SECRET in .env
 
 Running:
@@ -207,6 +207,50 @@ class TestB2B:
         print(f"  B2B accepted — ConversationID: {data['ConversationID']}")
 
 
+@pytest.mark.daraja
+class TestSTKPush:
+    """M-Pesa Express (STK Push) — customer-initiated payments.
+
+    Simulates a till-based payment request to an M-Pesa user.
+    Uses the default sandbox shortcode 174379.
+    """
+
+    STK_SHORTCODE = "174379"
+    STK_PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"
+
+    def test_stk_push_request(self, auth_token):
+        import datetime, base64
+
+        headers = {"Authorization": f"Bearer {auth_token}", "Content-Type": "application/json"}
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        password = base64.b64encode(
+            f"{self.STK_SHORTCODE}{self.STK_PASSKEY}{timestamp}".encode()
+        ).decode()
+
+        payload = {
+            "BusinessShortCode": self.STK_SHORTCODE,
+            "Password": password,
+            "Timestamp": timestamp,
+            "TransactionType": "CustomerPayBillOnline",
+            "Amount": "1",
+            "PartyA": SANDBOX_MSISDN,
+            "PartyB": self.STK_SHORTCODE,
+            "PhoneNumber": SANDBOX_MSISDN,
+            "CallBackURL": "https://example.com/callback",
+            "AccountReference": "test",
+            "TransactionDesc": "test",
+        }
+        resp = requests.post(
+            f"{SANDBOX}/mpesa/stkpush/v1/processrequest",
+            headers=headers, json=payload, timeout=15,
+        )
+        data = resp.json()
+        assert resp.status_code == 200, f"STK Push failed: {data}"
+        assert data.get("ResponseCode") == "0", f"STK Push rejected: {data}"
+        assert "CheckoutRequestID" in data
+        print(f"  STK Push accepted — CheckoutRequestID: {data['CheckoutRequestID']}")
+
+
 def print_status_summary():
     """Print summary of which sandbox products are working."""
     print()
@@ -219,8 +263,7 @@ def print_status_summary():
     print("  B2C (payouts)            ✅  Verified")
     print("  C2B (collections)        ✅  Verified")
     print("  B2B Express (layering)   ✅  Verified")
-    print("  M-Pesa Express (STK)     ❌  Add 'M-Pesa Express' product")
-    print("                                to your sandbox app")
+    print("  M-Pesa Express (STK)     ✅  Verified")
     print()
     print("  To add M-Pesa Express:")
     print("    1. https://developer.safaricom.co.ke/ > My Apps")
