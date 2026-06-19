@@ -105,10 +105,10 @@ The Daraja integration tests call live endpoints against the Safaricom sandbox:
 
 | Product | Endpoint | Status |
 |---|---|---|
-| B2C (Business → Customer payout) | `/mpesa/b2c/v1/paymentrequest` | ✅ |
-| C2B (Customer → Business collection) | `/mpesa/c2b/v1/simulate` | ✅ |
-| B2B Express (Push2Till layering) | `/mpesa/b2b/v1/paymentrequest` | ✅ |
-| M-Pesa Express (STK Push) | `/mpesa/stkpush/v1/processrequest` | ✅ |
+| B2C (Business → Customer payout) | `/mpesa/b2c/v1/paymentrequest` | [OK] |
+| C2B (Customer → Business collection) | `/mpesa/c2b/v1/simulate` | [OK] |
+| B2B Express (Push2Till layering) | `/mpesa/b2b/v1/paymentrequest` | [OK] |
+| M-Pesa Express (STK Push) | `/mpesa/stkpush/v1/processrequest` | [OK] |
 
 To run the Daraja tests, save your sandbox credentials in `.env`:
 

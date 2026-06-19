@@ -4,10 +4,10 @@ These tests validate the sandbox certificate, authenticate against
 the Daraja API, and test actual M-Pesa API endpoints.
 
 Products tested:
-  ✅ B2C (Business to Customer)     — payout API for routing engine
-  ✅ C2B (Customer to Business)      — inbound collection
-  ✅ B2B Express (Push2Till)         — layering between accounts
-  ✅ M-Pesa Express (STK Push)       — customer-initiated payments
+  B2C (Business to Customer)      - payout API for routing engine [OK]
+  C2B (Customer to Business)       - inbound collection [OK]
+  B2B Express (Push2Till)          - layering between accounts [OK]
+  M-Pesa Express (STK Push)        - customer-initiated payments [OK]
 
 Setup:
   1. Register at https://developer.safaricom.co.ke/
@@ -260,10 +260,10 @@ def print_status_summary():
     print()
     print("  Product                  Status")
     print("  " + "-" * 44)
-    print("  B2C (payouts)            ✅  Verified")
-    print("  C2B (collections)        ✅  Verified")
-    print("  B2B Express (layering)   ✅  Verified")
-    print("  M-Pesa Express (STK)     ✅  Verified")
+    print("  B2C (payouts)            [OK]  Verified")
+    print("  C2B (collections)        [OK]  Verified")
+    print("  B2B Express (layering)   [OK]  Verified")
+    print("  M-Pesa Express (STK)     [OK]  Verified")
     print()
     print("  To add M-Pesa Express:")
     print("    1. https://developer.safaricom.co.ke/ > My Apps")
