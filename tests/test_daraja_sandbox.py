@@ -6,12 +6,16 @@ the Daraja API, and test actual M-Pesa API endpoints.
 Products tested:
   ✅ B2C (Business to Customer)     — payout API for routing engine
   ✅ C2B (Customer to Business)      — inbound collection
-  ⚠️ B2B (Business to Business)      — needs specific payload config
-  ❌ M-Pesa Express (STK Push)       — not enabled on current app
+  ✅ B2B Express (Push2Till)         — layering between accounts
+  ❌ M-Pesa Express (STK Push)       — add 'M-Pesa Express' product
 
 Setup:
   1. Register at https://developer.safaricom.co.ke/
-  2. My Apps > Create App > add B2C, M-Pesa Express, C2B, B2B
+  2. My Apps > Create App > add these products:
+     - B2C
+     - C2B
+     - B2B Express (also called B2B-UUSDPush2Till-Product)
+     - M-Pesa Express (for STK Push)
   3. Save CONSUMER_KEY and CONSUMER_SECRET in .env
 
 Running:
@@ -168,6 +172,41 @@ class TestC2B:
         print(f"  C2B accepted — ConversationID: {data.get('OriginatorCoversationID', 'N/A')}")
 
 
+@pytest.mark.daraja
+class TestB2B:
+    """Business to Business Express — layering between business accounts.
+
+    B2B-UUSDPush2Till-Product: pushes funds from one business to a till.
+    Useful for the routing engine's layering/structuring between accounts.
+    """
+
+    def test_b2b_payment_request(self, auth_token):
+        headers = {"Authorization": f"Bearer {auth_token}", "Content-Type": "application/json"}
+        payload = {
+            "Initiator": "testapi",
+            "SecurityCredential": "testcred",
+            "CommandID": "BusinessPayBill",
+            "SenderIdentifierType": "2",
+            "RecieverIdentifierType": "2",
+            "Amount": "1",
+            "PartyA": SANDBOX_SHORTCODE,
+            "PartyB": "600983",
+            "AccountReference": "test001",
+            "Remarks": "test",
+            "QueueTimeOutURL": "https://example.com/timeout",
+            "ResultURL": "https://example.com/result",
+        }
+        resp = requests.post(
+            f"{SANDBOX}/mpesa/b2b/v1/paymentrequest",
+            headers=headers, json=payload, timeout=15,
+        )
+        data = resp.json()
+        assert resp.status_code == 200, f"B2B failed: {data}"
+        assert data.get("ResponseCode") == "0", f"B2B rejected: {data}"
+        assert "ConversationID" in data
+        print(f"  B2B accepted — ConversationID: {data['ConversationID']}")
+
+
 def print_status_summary():
     """Print summary of which sandbox products are working."""
     print()
@@ -175,12 +214,13 @@ def print_status_summary():
     print("  DARAJA SANDBOX STATUS")
     print("=" * 60)
     print()
-    print("  Product               Status")
-    print("  " + "-" * 40)
-    print("  B2C (payouts)         ✅  Verified")
-    print("  C2B (collections)     ✅  Verified")
-    print("  B2B (layering)        ⚠️  Needs payload config")
-    print("  M-Pesa Express (STK)  ❌  Add product to sandbox app")
+    print("  Product                  Status")
+    print("  " + "-" * 44)
+    print("  B2C (payouts)            ✅  Verified")
+    print("  C2B (collections)        ✅  Verified")
+    print("  B2B Express (layering)   ✅  Verified")
+    print("  M-Pesa Express (STK)     ❌  Add 'M-Pesa Express' product")
+    print("                                to your sandbox app")
     print()
     print("  To add M-Pesa Express:")
     print("    1. https://developer.safaricom.co.ke/ > My Apps")
