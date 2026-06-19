@@ -3,14 +3,51 @@
 These tests validate the sandbox certificate and attempt to verify
 connectivity to the Safaricom Daraja API sandbox environment.
 
-The sandbox certificate is used for SSL pinning when connecting to
-the Daraja API endpoints. Full API integration requires a consumer
-key and secret from the Safaricom Developer Portal.
+Safaricom Developer Portal Products
+====================================
 
-Prerequisites:
-    1. Register at https://developer.safaricom.co.ke/
-    2. Create an app to get consumer_key and consumer_secret
-    3. The sandbox certificate is at pub/SandboxCertificate.cer
+For the routing engine's use case (inbound capital through M-Pesa),
+the relevant API products are:
+
+1. B2C (Business to Customer) — PRIMARY
+   Used to send money from a business to M-Pesa users.
+   This is the payout API for OTC desks, remittance disbursement,
+   and bulk agent payouts. The routing engine optimizes which
+   accounts/channels these payouts flow through.
+
+2. M-Pesa Express (STK Push / Lipa na M-Pesa Online) — PRIMARY
+   Used to initiate a payment request from an M-Pesa user.
+   This is how inbound capital would be collected from diaspora
+   or foreign sources into Kenyan mobile money.
+
+3. C2B (Customer to Business) — SECONDARY
+   Used to receive payments via till number or paybill.
+   Relevant for merchant collection of inbound funds.
+
+4. B2B (Business to Business) — SECONDARY
+   Used to transfer between business accounts.
+   Relevant for layering/structuring across multiple accounts.
+
+When creating a sandbox app in the developer portal, add ALL of
+the above products to test the complete inbound capital flow.
+
+Setup Steps:
+   1. Register at https://developer.safaricom.co.ke/
+   2. Go to: My Apps > Create App
+   3. Add these API products: B2C, M-Pesa Express, C2B, B2B
+   4. Note your Consumer Key and Consumer Secret
+   5. Download the sandbox certificate from the app dashboard
+      (or use the one at pub/SandboxCertificate.cer)
+
+Running Daraja Tests:
+   Option 1 (.env file — recommended):
+     echo "CONSUMER_KEY=xxx" > .env
+     echo "CONSUMER_SECRET=xxx" >> .env
+     python -m pytest tests/test_daraja_sandbox.py -v --no-header -k "daraja"
+
+   Option 2 (environment variables):
+     DARAYA_CONSUMER_KEY=xxx DARAYA_CONSUMER_SECRET=xxx \\
+       python -m pytest tests/test_daraja_sandbox.py -v --no-header -k "daraja"
 """
 
 import ssl
@@ -23,6 +60,27 @@ PUB_DIR = Path(__file__).parent.parent / "pub"
 CERT_PATH = PUB_DIR / "SandboxCertificate.cer"
 DARAYA_SANDBOX_URL = "https://sandbox.safaricom.co.ke"
 DARAYA_AUTH_URL = f"{DARAYA_SANDBOX_URL}/oauth/v1/generate?grant_type=client_credentials"
+
+# ── Load credentials from .env ──────────────────────────────────────
+DOTENV_PATH = Path(__file__).parent.parent / ".env"
+
+
+def _load_dotenv(path: Path) -> dict:
+    """Simple .env parser — reads KEY=VALUE pairs, no external deps."""
+    if not path.exists():
+        return {}
+    env = {}
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        env[key.strip()] = value.strip()
+    return env
+
+
+_dotenv = _load_dotenv(DOTENV_PATH)
+
 
 
 @pytest.mark.daraja
@@ -73,19 +131,26 @@ class TestDarajaConnectivity:
 class TestDarajaAuth:
     """Requires consumer_key and consumer_secret from Safaricom Dev Portal.
 
-    Set these environment variables to run:
-        export DARAYA_CONSUMER_KEY=your_key
-        export DARAYA_CONSUMER_SECRET=your_secret
+    Credentials are loaded from .env (CONSUMER_KEY and CONSUMER_SECRET)
+    or from DARAYA_CONSUMER_KEY / DARAYA_CONSUMER_SECRET env vars.
     """
 
-    CONSUMER_KEY = os.environ.get("DARAYA_CONSUMER_KEY", "")
-    CONSUMER_SECRET = os.environ.get("DARAYA_CONSUMER_SECRET", "")
+    CONSUMER_KEY = (
+        os.environ.get("DARAYA_CONSUMER_KEY")
+        or _dotenv.get("CONSUMER_KEY")
+        or ""
+    )
+    CONSUMER_SECRET = (
+        os.environ.get("DARAYA_CONSUMER_SECRET")
+        or _dotenv.get("CONSUMER_SECRET")
+        or ""
+    )
 
     def test_credentials_available(self):
         if not self.CONSUMER_KEY or not self.CONSUMER_SECRET:
             pytest.skip(
-                "Set DARAYA_CONSUMER_KEY and DARAYA_CONSUMER_SECRET "
-                "environment variables to run auth tests"
+                "Set CONSUMER_KEY and CONSUMER_SECRET in .env "
+                "or DARAYA_CONSUMER_KEY / DARAYA_CONSUMER_SECRET env vars"
             )
 
     def test_oauth_token_generation(self):
@@ -93,7 +158,6 @@ class TestDarajaAuth:
             pytest.skip("Credentials not configured")
 
         import requests
-
         if not CERT_PATH.exists():
             pytest.skip("Sandbox certificate not found")
 
@@ -123,17 +187,27 @@ def print_setup_instructions():
     print("  DARAJA API SETUP INSTRUCTIONS")
     print("=" * 60)
     print()
-    print("  To enable Daraja integration tests, you need:")
+    print("  Products to activate (all 4 for routing engine):")
+    print("    1. B2C (Business to Customer)      — PRIMARY (payouts)")
+    print("    2. M-Pesa Express (STK Push)       — PRIMARY (collections)")
+    print("    3. C2B (Customer to Business)      — Secondary (receiving)")
+    print("    4. B2B (Business to Business)      — Secondary (layering)")
     print()
-    print("  1. Register at https://developer.safaricom.co.ke/")
-    print("  2. Create a new app in the sandbox")
-    print("  3. Note your Consumer Key and Consumer Secret")
-    print("  4. Download the sandbox certificate if not present")
+    print("  Steps:")
+    print("    1. Go to https://developer.safaricom.co.ke/")
+    print("    2. My Apps > Create App")
+    print("    3. Add the 4 products above")
+    print("    4. Copy Consumer Key and Consumer Secret")
+    print("    5. Download sandbox certificate (or use existing)")
     print()
-    print("  Then run tests with:")
+    print("  Set credentials in .env (recommended):")
+    print('    echo "CONSUMER_KEY=xxx" > .env')
+    print('    echo "CONSUMER_SECRET=xxx" >> .env')
+    print()
+    print("  Or use environment variables:")
     print("    DARAYA_CONSUMER_KEY=xxx DARAYA_CONSUMER_SECRET=xxx \\")
     print("      python -m pytest tests/test_daraja_sandbox.py -v --no-header")
     print()
-    print("  Current certificate path:", CERT_PATH)
+    print("  Certificate path:", CERT_PATH)
     print("  Certificate exists:", CERT_PATH.exists())
     print()
